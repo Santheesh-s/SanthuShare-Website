@@ -48,6 +48,11 @@
                 <use xlink:href="#notifications" />
             </svg>
         </a>
+        <a href="#" id="themeToggle" class="icon-button" title="Toggle Theme">
+            <svg class="icon">
+                <use xlink:href="#moon" id="themeIcon" />
+            </svg>
+        </a>
         <a href="#" id="install" class="icon-button" title="Install Santhushare" hidden>
             <svg class="icon">
                 <use xlink:href="#homescreen" />
@@ -59,7 +64,7 @@
     <x-no-peers>
         <h2>Open Santhushare on other devices to send files</h2>
     </x-no-peers>
-    <x-instructions desktop="Click to send files or right click to send a message" mobile="Tap to send files or long tap to send a message"></x-instructions>
+    <x-instructions desktop="Click to send files or Drop to send folders. Tap icons to Chat. Click footer to rename." mobile="Tap to send files. Use icons to chat. Tap footer to rename."></x-instructions>
     <!-- Footer -->
     <footer class="column">
         <svg class="icon logo">
@@ -85,6 +90,21 @@
                 <div class="row-reverse">
                     <a class="button" close id="download" title="Download File" autofocus>Save</a>
                     <button class="button" close>Ignore</button>
+                </div>
+            </x-paper>
+        </x-background>
+    </x-dialog>
+    <!-- Name Dialog -->
+    <x-dialog id="nameDialog">
+        <x-background class="full center">
+            <x-paper shadow="2">
+                <h3>Enter a new display name</h3>
+                <div class="row">
+                    <input type="text" id="nameInput" class="textarea grow" placeholder="Display name" autocomplete="off" autofocus>
+                </div>
+                <div class="row-reverse">
+                    <button class="button" id="saveName" title="Save Name">Save</button>
+                    <button class="button" close>Cancel</button>
                 </div>
             </x-paper>
         </x-background>
@@ -123,22 +143,12 @@
             <h1>Santhushare</h1>
             <div class="font-subheading">The easiest way to transfer files across devices</div>
             <div class="row">
-                <a class="icon-button" target="_blank" href="https://github.com/RobinLinus/snapdrop" title="Santhushare on Github" rel="noreferrer">
+                <a class="icon-button" target="_blank" href="https://github.com/Santheesh-s/SanthuShare-Website/" title="Santhushare on Github" rel="noreferrer">
                     <svg class="icon">
                         <use xlink:href="#github" />
                     </svg>
                 </a>
-                <a class="icon-button" target="_blank" href="https://www.paypal.com/donate?hosted_button_id=FTP9DXUR7LA7Q" title="Help cover the server costs!" rel="noreferrer">
-                    <svg class="icon">
-                        <use xlink:href="#monetarization" />
-                    </svg>
-                </a>
-                <a class="icon-button" target="_blank" href="https://twitter.com/intent/tweet?text=https://snapdrop.net%20by%20@robin_linus%20&" title="Tweet about Santhushare" rel="noreferrer">
-                    <svg class="icon">
-                        <use xlink:href="#twitter" />
-                    </svg>
-                </a>
-                <a class="icon-button" target="_blank" href="https://github.com/RobinLinus/snapdrop/blob/master/docs/faq.md" title="Frequently asked questions" rel="noreferrer">
+                <a class="icon-button" target="_blank" href="https://github.com/Santheesh-s/SanthuShare-Website/blob/master/docs/faq.md" title="Frequently asked questions" rel="noreferrer">
                     <svg class="icon">
                         <use xlink:href="#help-outline" />
                     </svg>
@@ -190,6 +200,12 @@
         </symbol>
         <symbol id="chat" viewBox="0 0 24 24">
             <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
+        </symbol>
+        <symbol id="moon" viewBox="0 0 24 24">
+            <path d="M20.3 15.6c.1-.5.1-1.1.1-1.6 0-4.6-3.7-8.3-8.3-8.3-.5 0-1.1.1-1.6.1 2.3-3.1 5.9-4.8 9.8-4.8 6.6 0 12 5.4 12 12 0 3.9-1.7 7.5-4.8 9.8 0-.5.1-1 .1-1.5zM10.2 24c4.6 0 8.3-3.7 8.3-8.3 0-2.3-.9-4.4-2.4-5.9-1.5-1.5-3.6-2.4-5.9-2.4-4.6 0-8.3 3.7-8.3 8.3 0 2.3.9 4.4 2.4 5.9 1.5 1.5 3.6 2.4 5.9 2.4z"/>
+        </symbol>
+        <symbol id="sun" viewBox="0 0 24 24">
+            <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06z"/>
         </symbol>
     </svg>
     <!-- Scripts -->

@@ -139,7 +139,13 @@ class Peer {
     }
 
     _onReceivedPartitionEnd(offset) {
-        this.sendJSON({ type: 'partition-received', offset: offset });
+        if (this._digester && this._digester._writePromise) {
+            this._digester._writePromise.then(() => {
+                this.sendJSON({ type: 'partition-received', offset: offset });
+            });
+        } else {
+            this.sendJSON({ type: 'partition-received', offset: offset });
+        }
     }
 
     _sendNextPartition() {
@@ -441,8 +447,8 @@ class WSPeer extends Peer {
 class FileChunker {
 
     constructor(file, onChunk, onPartitionEnd) {
-        this._chunkSize = 64000; // 64 KB
-        this._maxPartitionSize = 1e6; // 1 MB
+        this._chunkSize = 64000; // 64 KB (safest for cross-browser iOS limits)
+        this._maxPartitionSize = 1.6e7; // 16 MB (improves transfer speed significantly)
         this._offset = 0;
         this._partitionSize = 0;
         this._file = file;
@@ -501,23 +507,61 @@ class FileDigester {
         this._mime = meta.mime || 'application/octet-stream';
         this._name = meta.name;
         this._callback = callback;
+        
+        this._initPromise = this._initStream();
+        this._writePromise = this._initPromise;
+    }
+
+    async _initStream() {
+        if (navigator.storage && navigator.storage.getDirectory) {
+            try {
+                this._dirHandle = await navigator.storage.getDirectory();
+                const safeName = Date.now() + '_' + this._name;
+                this._fileHandle = await this._dirHandle.getFileHandle(safeName, {create: true});
+                this._writable = await this._fileHandle.createWritable();
+                this._useOPFS = true;
+            } catch (e) {
+                console.warn('OPFS not available, falling back to RAM Blob', e);
+                this._useOPFS = false;
+            }
+        }
     }
 
     unchunk(chunk) {
-        this._buffer.push(chunk);
         this._bytesReceived += chunk.byteLength || chunk.size;
-        const totalChunks = this._buffer.length;
         this.progress = this._bytesReceived / this._size;
-        if (isNaN(this.progress)) this.progress = 1
+        if (isNaN(this.progress)) this.progress = 1;
+
+        this._writePromise = this._writePromise.then(() => {
+            if (this._useOPFS && this._writable) {
+                return this._writable.write(chunk);
+            } else {
+                this._buffer.push(chunk);
+            }
+        }).catch(e => console.error('Write error', e));
 
         if (this._bytesReceived < this._size) return;
+        
         // we are done
-        let blob = new Blob(this._buffer, { type: this._mime });
-        this._callback({
-            name: this._name,
-            mime: this._mime,
-            size: this._size,
-            blob: blob
+        this._writePromise.then(async () => {
+            if (this._useOPFS && this._writable) {
+                await this._writable.close();
+                const file = await this._fileHandle.getFile();
+                this._callback({
+                    name: this._name,
+                    mime: this._mime,
+                    size: this._size,
+                    blob: file
+                });
+            } else {
+                let blob = new Blob(this._buffer, { type: this._mime });
+                this._callback({
+                    name: this._name,
+                    mime: this._mime,
+                    size: this._size,
+                    blob: blob
+                });
+            }
         });
     }
 

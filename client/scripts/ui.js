@@ -26,12 +26,7 @@ function setupDisplayName(me) {
         $displayName.style.textDecoration = 'underline';
         $displayName.title = 'Click to change your name';
         $displayName.addEventListener('click', () => {
-            const newName = prompt('Enter a new display name:', _me ? _me.displayName : '');
-            if (newName && newName.trim()) {
-                const finalName = newName.trim();
-                window.localStorage.setItem('santhushare-name', finalName);
-                Events.fire('update-name', finalName);
-            }
+            Events.fire('show-name-dialog');
         });
         $displayName.dataset.bound = true;
     }
@@ -127,10 +122,6 @@ class PeerUI {
                     <div class="device-name font-body2"></div>
                     <progress class="file-progress" max="1" value="0" style="display:none; width: 80%; margin-top: 8px; height: 6px; border-radius: 4px;"></progress>
                     <div class="status font-body2"></div>
-                </label>
-                <label class="folder-button icon-button" title="Send Folder" style="position: absolute; top: -5px; right: 0px; z-index: 10; cursor: pointer;">
-                    <input type="file" webkitdirectory directory class="folder-input" style="display:none;">
-                    <svg viewBox="0 0 24 24" style="width:24px; height:24px; fill:var(--text-color);"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
                 </label>
                 <button class="chat-button icon-button" title="Open Chat" style="position: absolute; top: 35px; right: 0px; z-index: 10; cursor: pointer;">
                     <svg viewBox="0 0 24 24" style="width:24px; height:24px; fill:var(--text-color);"><use xlink:href="#chat"/></svg>
@@ -439,6 +430,40 @@ class ReceiveDialog extends Dialog {
     }
 }
 
+class NameDialog extends Dialog {
+    constructor() {
+        super('nameDialog');
+        this.$input = this.$el.querySelector('#nameInput');
+        this.$saveBtn = this.$el.querySelector('#saveName');
+        
+        Events.on('show-name-dialog', e => this.show());
+        
+        this.$saveBtn.addEventListener('click', () => this._save());
+        this.$input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') this._save();
+        });
+    }
+
+    show() {
+        if (_me && _me.displayName) {
+            this.$input.value = _me.displayName;
+        }
+        super.show();
+        setTimeout(() => this.$input.focus(), 100);
+        setTimeout(() => this.$input.select(), 150);
+    }
+
+    _save() {
+        const newName = this.$input.value;
+        if (newName && newName.trim()) {
+            const finalName = newName.trim();
+            window.localStorage.setItem('santhushare-name', finalName);
+            Events.fire('update-name', finalName);
+            this.hide();
+        }
+    }
+}
+
 
 class ChatUI {
     constructor() {
@@ -690,6 +715,42 @@ class WebShareTargetUI {
     }
 }
 
+class ThemeUI {
+    constructor() {
+        this.$button = document.getElementById('themeToggle');
+        this.$icon = document.getElementById('themeIcon');
+        
+        // Restore theme from localStorage or system preference
+        const savedTheme = localStorage.getItem('santhushare-theme');
+        if (savedTheme) {
+            this._setTheme(savedTheme);
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            this._setTheme('dark');
+        } else {
+            this._setTheme('light');
+        }
+
+        if (this.$button) {
+            this.$button.addEventListener('click', e => this._toggle(e));
+        }
+    }
+
+    _toggle(e) {
+        e.preventDefault();
+        const current = document.documentElement.getAttribute('theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        this._setTheme(next);
+    }
+
+    _setTheme(theme) {
+        document.documentElement.setAttribute('theme', theme);
+        localStorage.setItem('santhushare-theme', theme);
+        if (this.$icon) {
+            this.$icon.setAttribute('xlink:href', theme === 'dark' ? '#sun' : '#moon');
+        }
+    }
+}
+
 
 class Snapdrop {
     constructor() {
@@ -698,11 +759,13 @@ class Snapdrop {
         const peersUI = new PeersUI();
         Events.on('load', e => {
             const receiveDialog = new ReceiveDialog();
+            const nameDialog = new NameDialog();
             const chatUI = new ChatUI();
             const toast = new Toast();
             const notifications = new Notifications();
             const networkStatusUI = new NetworkStatusUI();
             const webShareTargetUI = new WebShareTargetUI();
+            const themeUI = new ThemeUI();
         });
     }
 }

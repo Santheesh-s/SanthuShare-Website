@@ -2,7 +2,7 @@
 
 :root {
     --icon-size: 24px;
-    --primary-color: #4285f4;
+    --primary-color: #10B981;
     --peer-width: 120px;
     --text-color: #333;
     --bg-color: #fafafa;
@@ -686,15 +686,21 @@ screen and (min-width: 1100px) {
     }
 }
 
-/*
-    Color Themes
-*/
+/* Light theme (default) */
+:root {
+    --text-color: #111827;
+    --bg-color: #f9fafb;
+    --bg-color-secondary: #f3f4f6;
+    --dialog-bg: #ffffff;
+}
 
-/* Default colors */
-body {
-    --text-color: #333;
-    --bg-color: #fafafa;
-    --bg-color-secondary: #f1f3f4;
+/* Dark theme overrides */
+[theme="dark"] {
+    --text-color: #f3f4f6;
+    --bg-color: #111827;
+    --bg-color-secondary: #1f2937;
+    --dialog-bg: #1f2937;
+    --primary-color: #34d399; /* slightly brighter green for dark mode */
 }
 
 /* Colored Elements */
@@ -705,7 +711,7 @@ body {
 }
 
 x-dialog x-paper {
-    background-color: var(--bg-color);
+    background-color: var(--dialog-bg);
 }
 
 .textarea {
@@ -800,7 +806,7 @@ x-dialog x-paper {
 }
 
 .chat-message.them {
-    background: white;
+    background: var(--dialog-bg);
     color: var(--text-color);
     align-self: flex-start;
     border-bottom-left-radius: 4px;
