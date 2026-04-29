@@ -128,10 +128,21 @@ class Peer {
             mime: file.type,
             size: file.size
         });
+        this._currentFileSize = file.size;
         this._chunker = new FileChunker(file,
-            chunk => this._send(chunk),
+            chunk => this._sendChunk(chunk),
             offset => this._onPartitionEnd(offset));
         this._chunker.nextPartition();
+    }
+
+    _sendChunk(chunk) {
+        this._send(chunk);
+        if (this._conn && this._channel) {
+            if (this._channel.bufferedAmount > 1024 * 1024 * 2) { // 2MB limit
+                 return false; // tell chunker to pause
+            }
+        }
+        return true;
     }
 
     _onPartitionEnd(offset) {
@@ -188,6 +199,7 @@ class Peer {
 
     _onFileHeader(header) {
         this._lastProgress = 0;
+        this._currentFileSize = header.size;
         this._digester = new FileDigester({
             name: header.name,
             mime: header.mime,
@@ -209,7 +221,12 @@ class Peer {
     }
 
     _onDownloadProgress(progress) {
-        Events.fire('file-progress', { sender: this._peerId, progress: progress });
+        Events.fire('file-progress', { 
+             sender: this._peerId, 
+             progress: progress,
+             total: this._currentFileSize,
+             bytes: progress * (this._currentFileSize || 0)
+        });
     }
 
     _onFileReceived(proxyFile) {
@@ -307,6 +324,12 @@ class RTCPeer extends Peer {
         channel.binaryType = 'arraybuffer';
         channel.onmessage = e => this._onMessage(e.data);
         channel.onclose = e => this._onChannelClosed();
+        channel.bufferedAmountLowThreshold = 1024 * 512; // 512KB
+        channel.onbufferedamountlow = () => {
+            if (this._chunker && this._chunker._paused) {
+                this._chunker.resume();
+            }
+        };
         this._channel = channel;
     }
 
@@ -471,13 +494,26 @@ class FileChunker {
     _onChunkRead(chunk) {
         this._offset += chunk.byteLength;
         this._partitionSize += chunk.byteLength;
-        this._onChunk(chunk);
+        const continueReading = this._onChunk(chunk) !== false;
+        
         if (this.isFileEnd()) return;
         if (this._isPartitionEnd()) {
             this._onPartitionEnd(this._offset);
             return;
         }
-        this._readChunk();
+        
+        if (continueReading) {
+            this._readChunk();
+        } else {
+            this._paused = true;
+        }
+    }
+
+    resume() {
+        if (this._paused) {
+            this._paused = false;
+            this._readChunk();
+        }
     }
 
     repeatPartition() {

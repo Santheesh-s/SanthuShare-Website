@@ -79,7 +79,7 @@ class PeersUI {
         const peerId = progress.sender || progress.recipient;
         const $peer = $(peerId);
         if (!$peer) return;
-        $peer.ui.setProgress(progress.progress);
+        $peer.ui.setProgress(progress.progress, progress.bytes, progress.total);
     }
 
     _clearPeers() {
@@ -120,6 +120,7 @@ class PeerUI {
                     </div>
                     <div class="name font-subheading"></div>
                     <div class="device-name font-body2"></div>
+                    <div class="transfer-stats font-body2" style="font-size: 0.75rem; margin-top: 4px; display: none; color: var(--text-color-muted, #888);"></div>
                     <progress class="file-progress" max="1" value="0" style="display:none; width: 80%; margin-top: 8px; height: 6px; border-radius: 4px;"></progress>
                     <div class="status font-body2"></div>
                 </label>
@@ -146,6 +147,7 @@ class PeerUI {
         this.$el = el;
         this.$progress = el.querySelector('.progress');
         this.$fileProgress = el.querySelector('.file-progress');
+        this.$transferStats = el.querySelector('.transfer-stats');
     }
 
     _bindListeners(el) {
@@ -212,16 +214,53 @@ class PeerUI {
         $input.value = null; // reset input
     }
 
-    setProgress(progress) {
-        if (progress > 0) {
+    setProgress(progress, bytes, total) {
+        if (progress > 0 && progress < 1) {
             this.$el.setAttribute('transfer', '1');
             this.$fileProgress.style.display = 'block';
             this.$fileProgress.value = progress;
+            
+            if (bytes && total) {
+                const now = Date.now();
+                if (!this._transferStartTime) {
+                    this._transferStartTime = now;
+                    this._lastBytes = 0;
+                    this._lastTime = now;
+                    this._speedStats = [];
+                    this.$transferStats.style.display = 'block';
+                }
+                
+                const timeDiff = (now - this._lastTime) / 1000;
+                if (timeDiff >= 0.5) { // update every 500ms
+                    const bytesDiff = bytes - this._lastBytes;
+                    let speed = bytesDiff / timeDiff; // bytes per second
+                    
+                    this._speedStats.push(speed);
+                    if (this._speedStats.length > 5) this._speedStats.shift();
+                    const avgSpeed = this._speedStats.reduce((a, b) => a + b, 0) / this._speedStats.length;
+                    
+                    this.$transferStats.textContent = this._formatSpeedAndRemaining(avgSpeed, total - bytes);
+                    
+                    this._lastTime = now;
+                    this._lastBytes = bytes;
+                }
+            }
         } else if (progress === 0 && this.$el.hasAttribute('transfer')) {
             // handle the end of transfer
             this.$fileProgress.style.display = 'none';
             this.$fileProgress.value = 0;
             this.$el.removeAttribute('transfer');
+            if (this.$transferStats) {
+                this.$transferStats.style.display = 'none';
+                this.$transferStats.textContent = '';
+                this._transferStartTime = null;
+            }
+        } else if (progress >= 1) {
+            this.$fileProgress.value = 1;
+            if (this.$transferStats) {
+                this.$transferStats.textContent = 'Processing...';
+            }
+            setTimeout(() => this.setProgress(0), 500); // clear UI after small delay
         }
 
         if (progress > 0.5) {
@@ -231,10 +270,31 @@ class PeerUI {
         }
         const degrees = `rotate(${360 * progress}deg)`;
         this.$progress.style.setProperty('--progress', degrees);
-        
-        if (progress >= 1) {
-            setTimeout(() => this.setProgress(0), 500); // clear UI after small delay
+    }
+
+    _formatSpeedAndRemaining(bytesPerSec, remainingBytes) {
+        let speedStr = '';
+        if (bytesPerSec >= 1e6) {
+            speedStr = (bytesPerSec / 1e6).toFixed(1) + ' MB/s';
+        } else if (bytesPerSec >= 1000) {
+            speedStr = Math.round(bytesPerSec / 1000) + ' KB/s';
+        } else {
+            speedStr = Math.round(bytesPerSec) + ' B/s';
         }
+
+        let timeStr = '';
+        if (bytesPerSec > 0) {
+            const seconds = Math.round(remainingBytes / bytesPerSec);
+            if (seconds > 60) {
+                timeStr = Math.floor(seconds / 60) + 'm ' + (seconds % 60) + 's';
+            } else {
+                timeStr = seconds + 's';
+            }
+        } else {
+            timeStr = '...';
+        }
+        
+        return `${speedStr} • ${timeStr} left`;
     }
 
     async _onDrop(e) {
