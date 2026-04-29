@@ -290,7 +290,11 @@ class RTCPeer extends Peer {
     }
 
     _onDescription(description) {
-        description.sdp = description.sdp.replace('b=AS:30', 'b=AS:1638400');
+        if (description.sdp.indexOf('b=AS:') === -1) {
+            description.sdp = description.sdp.replace(/m=application.*\r\n/g, '$&b=AS:1638400\r\n');
+        } else {
+            description.sdp = description.sdp.replace(/b=AS:.*\r\n/g, 'b=AS:1638400\r\n');
+        }
         this._conn.setLocalDescription(description)
             .then(_ => this._sendSignal({ sdp: description }))
             .catch(e => this._onError(e));
@@ -470,15 +474,13 @@ class WSPeer extends Peer {
 class FileChunker {
 
     constructor(file, onChunk, onPartitionEnd) {
-        this._chunkSize = 64000; // 64 KB (safest for cross-browser iOS limits)
+        this._chunkSize = 256 * 1024; // 256 KB
         this._maxPartitionSize = 1.6e7; // 16 MB (improves transfer speed significantly)
         this._offset = 0;
         this._partitionSize = 0;
         this._file = file;
         this._onChunk = onChunk;
         this._onPartitionEnd = onPartitionEnd;
-        this._reader = new FileReader();
-        this._reader.addEventListener('load', e => this._onChunkRead(e.target.result));
     }
 
     nextPartition() {
@@ -486,9 +488,14 @@ class FileChunker {
         this._readChunk();
     }
 
-    _readChunk() {
+    async _readChunk() {
         const chunk = this._file.slice(this._offset, this._offset + this._chunkSize);
-        this._reader.readAsArrayBuffer(chunk);
+        try {
+            const buffer = await chunk.arrayBuffer();
+            this._onChunkRead(buffer);
+        } catch (e) {
+            console.error('FileChunker read error:', e);
+        }
     }
 
     _onChunkRead(chunk) {
