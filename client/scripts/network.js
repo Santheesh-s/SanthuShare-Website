@@ -273,7 +273,7 @@ class RTCPeer extends Peer {
     }
 
     _onDescription(description) {
-        // description.sdp = description.sdp.replace('b=AS:30', 'b=AS:1638400');
+        description.sdp = description.sdp.replace('b=AS:30', 'b=AS:1638400');
         this._conn.setLocalDescription(description)
             .then(_ => this._sendSignal({ sdp: description }))
             .catch(e => this._onError(e));
