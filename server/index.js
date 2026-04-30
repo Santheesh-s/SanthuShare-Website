@@ -212,9 +212,36 @@ class Peer {
     }
 
     _setIP(request) {
-        // Group all peers into a single "global" room so that devices 
-        // on the same local network can discover each other.
-        this.ip = 'global';
+        let ip;
+        if (request.headers['x-forwarded-for']) {
+            ip = request.headers['x-forwarded-for'].split(/\s*,\s*/)[0];
+        } else {
+            ip = request.connection.remoteAddress;
+        }
+        
+        if (ip === '::1' || ip === '::ffff:127.0.0.1') {
+            ip = '127.0.0.1';
+        }
+        
+        let ipv4Match = ip.match(/(?:::ffff:)?(\d+\.\d+\.\d+\.\d+)/);
+        if (ipv4Match) {
+            let ipv4 = ipv4Match[1];
+            // If it's a local/private IP or localhost, group them in a single 'local' room
+            if (ipv4.startsWith('192.168.') || ipv4.startsWith('10.') || ipv4.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./) || ipv4 === '127.0.0.1') {
+                this.ip = 'local';
+            } else {
+                // Public internet IP: group exact IPs together (same household/NAT)
+                this.ip = ipv4;
+            }
+        } else {
+            // IPv6 private address check (Unique Local Addresses fd/fc, Link-local fe80, localhost ::1)
+            let ipLower = ip.toLowerCase();
+            if (ipLower.startsWith('fc') || ipLower.startsWith('fd') || ipLower.startsWith('fe8') || ip === '::1') {
+                this.ip = 'local';
+            } else {
+                this.ip = ip;
+            }
+        }
     }
 
     _setPeerId(request) {
