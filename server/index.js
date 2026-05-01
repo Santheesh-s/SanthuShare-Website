@@ -181,6 +181,9 @@ class SnapdropServer {
 
         // add peer to room
         this._rooms[peer.ip][peer.id] = peer;
+        
+        // ensure keepalive is running for the new room
+        this._keepAlive(peer);
     }
 
     _leaveRoom(peer) {

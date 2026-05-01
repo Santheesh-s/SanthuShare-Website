@@ -549,9 +549,15 @@ class PairDialog extends Dialog {
             });
         }
         
-        this.$joinBtn.addEventListener('click', () => this._join());
+        this.$joinBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            this._join();
+        });
         this.$input.addEventListener('keydown', e => {
-            if (e.key === 'Enter') this._join();
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this._join();
+            }
         });
     }
 
