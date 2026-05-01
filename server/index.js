@@ -55,6 +55,7 @@ class SnapdropServer {
         this._joinRoom(peer);
         peer.socket.on('message', message => this._onMessage(peer, message));
         peer.socket.on('error', console.error);
+        peer.socket.on('close', () => this._leaveRoom(peer));
         this._keepAlive(peer);
 
         // send displayName and pairingCode
@@ -224,7 +225,7 @@ class SnapdropServer {
 
     _send(peer, message) {
         if (!peer) return;
-        if (this._wss.readyState !== this._wss.OPEN) return;
+        if (peer.socket.readyState !== 1) return; // 1 is WebSocket.OPEN
         message = JSON.stringify(message);
         peer.socket.send(message, error => '');
     }
