@@ -241,12 +241,12 @@ class Peer {
         // set socket
         this.socket = socket;
 
-
-        // set remote ip
-        this._setIP(request);
-
         // set peer id
         this._setPeerId(request)
+        
+        // completely isolate every new connection
+        this.ip = 'isolated-' + this.id;
+
         // is WebRTC supported ?
         this.rtcSupported = request.url.indexOf('webrtc') > -1;
         // set name 
@@ -256,60 +256,6 @@ class Peer {
         // for keepalive
         this.timerId = 0;
         this.lastBeat = Date.now();
-    }
-
-    _setIP(request) {
-        // If a specific room is provided via URL (e.g. ?room=myhotspot), use it!
-        // This is the most reliable way to link devices on complex mobile hotspots.
-        const roomMatch = request.url.match(/[?&]room=([^&]+)/);
-        if (roomMatch) {
-            this.ip = 'room-' + roomMatch[1];
-            console.log(`[Discovery] Peer connected via custom room. Room assigned: ${this.ip}`);
-            return;
-        }
-
-        let ip;
-        if (request.headers['x-forwarded-for']) {
-            ip = request.headers['x-forwarded-for'].split(/\s*,\s*/)[0];
-        } else if (request.headers['x-real-ip']) {
-            ip = request.headers['x-real-ip'];
-        } else {
-            ip = request.connection.remoteAddress;
-        }
-        
-        if (ip === '::1' || ip === '::ffff:127.0.0.1') {
-            ip = '127.0.0.1';
-        }
-        
-        let ipv4Match = ip.match(/(?:::ffff:)?(\d+\.\d+\.\d+\.\d+)/);
-        if (ipv4Match) {
-            let ipv4 = ipv4Match[1];
-            // If the server is hosted locally, group all private IPs and localhost into a single 'local' room
-            if (ipv4.startsWith('192.168.') || ipv4.startsWith('10.') || ipv4.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./) || ipv4 === '127.0.0.1') {
-                this.ip = 'local';
-            } else {
-                // Group public IPv4 by /16 subnet (first 2 octets).
-                // Mobile carriers (e.g. Jio) aggressively separate tethering traffic by assigning completely different IP ranges.
-                let parts = ipv4.split('.');
-                this.ip = parts[0] + '.' + parts[1];
-            }
-        } else {
-            // IPv6 logic
-            let ipLower = ip.toLowerCase();
-            if (ipLower.startsWith('fc') || ipLower.startsWith('fd') || ipLower.startsWith('fe8') || ip === '::1') {
-                this.ip = 'local';
-            } else {
-                // Group public IPv6 addresses by their /48 prefix (first 3 blocks).
-                let ipv6Parts = ipLower.split(':');
-                if (ipv6Parts.length >= 3) {
-                    this.ip = ipv6Parts.slice(0, 3).join(':');
-                } else {
-                    this.ip = ipLower;
-                }
-            }
-        }
-        
-        console.log(`[Discovery] Peer connected. Raw IP: ${ip}, Room assigned: ${this.ip}`);
     }
 
     _setPeerId(request) {
