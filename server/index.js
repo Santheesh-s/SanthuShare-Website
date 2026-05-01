@@ -35,6 +35,7 @@ class SnapdropServer {
         this._rooms = {};
         this._peerRooms = {};
         this._peerCodes = {};
+        this._peerNames = {};
 
         server.listen(port, () => {
             console.log('Santhushare is running on port', port);
@@ -50,6 +51,11 @@ class SnapdropServer {
             peer.pairingCode = this._peerCodes[peer.id];
         } else {
             this._peerCodes[peer.id] = peer.pairingCode;
+        }
+        if (this._peerNames[peer.id]) {
+            peer.name.displayName = this._peerNames[peer.id];
+        } else {
+            this._peerNames[peer.id] = peer.name.displayName;
         }
 
         this._joinRoom(peer);
@@ -93,6 +99,7 @@ class SnapdropServer {
             case 'update-name':
                 if (message.name && message.name.length < 40) {
                     sender.name.displayName = message.name;
+                    this._peerNames[sender.id] = message.name; // Save the updated name
                     this._send(sender, {
                         type: 'display-name',
                         message: sender.getInfo().name
