@@ -14,7 +14,7 @@ class ServerConnection {
     _connect() {
         clearTimeout(this._reconnectTimer);
         if (this._isConnected() || this._isConnecting()) return;
-        const ws = new WebSocket(this._endpoint());
+        const ws = new WebSocket(this._endpoint() + window.location.search);
         ws.binaryType = 'arraybuffer';
         ws.onopen = e => console.log('WS: server connected');
         ws.onmessage = e => this._onMessage(e.data);
