@@ -232,9 +232,10 @@ class Peer {
             if (ipv4.startsWith('192.168.') || ipv4.startsWith('10.') || ipv4.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./) || ipv4 === '127.0.0.1') {
                 this.ip = 'local';
             } else {
-                // If the server is on the internet, group users by their exact public IP.
-                // This ensures only devices on the same Wi-Fi (sharing the same public IP) can see each other.
-                this.ip = ipv4;
+                // Group public IPv4 by /24 subnet (first 3 octets).
+                // Mobile hotspots/tethering often assign different public IPs from the same pool to connected devices.
+                let parts = ipv4.split('.');
+                this.ip = parts[0] + '.' + parts[1] + '.' + parts[2];
             }
         } else {
             // IPv6 logic
@@ -242,17 +243,18 @@ class Peer {
             if (ipLower.startsWith('fc') || ipLower.startsWith('fd') || ipLower.startsWith('fe8') || ip === '::1') {
                 this.ip = 'local';
             } else {
-                // Group public IPv6 addresses by their /64 prefix (first 4 blocks).
-                // Unlike IPv4 NAT, mobile hotspots assign unique public IPv6 addresses to each device.
-                // Grouping by the /64 prefix ensures devices on the same hotspot see each other.
+                // Group public IPv6 addresses by their /48 prefix (first 3 blocks).
+                // Mobile carriers frequently assign a different /64 subnet to the phone vs the tethered devices.
                 let ipv6Parts = ipLower.split(':');
-                if (ipv6Parts.length >= 4) {
-                    this.ip = ipv6Parts.slice(0, 4).join(':');
+                if (ipv6Parts.length >= 3) {
+                    this.ip = ipv6Parts.slice(0, 3).join(':');
                 } else {
                     this.ip = ipLower;
                 }
             }
         }
+        
+        console.log(`[Discovery] Peer connected. Raw IP: ${ip}, Room assigned: ${this.ip}`);
     }
 
     _setPeerId(request) {
