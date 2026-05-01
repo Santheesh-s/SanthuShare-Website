@@ -524,6 +524,43 @@ class NameDialog extends Dialog {
     }
 }
 
+class PairDialog extends Dialog {
+    constructor() {
+        super('pairDialog');
+        this.$input = this.$el.querySelector('#pairInput');
+        this.$joinBtn = this.$el.querySelector('#joinRoomBtn');
+        
+        Events.on('show-pair-dialog', e => this.show());
+        
+        const pairToggle = document.getElementById('pairToggle');
+        if (pairToggle) {
+            pairToggle.addEventListener('click', e => {
+                e.preventDefault();
+                Events.fire('show-pair-dialog');
+            });
+        }
+        
+        this.$joinBtn.addEventListener('click', () => this._join());
+        this.$input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') this._join();
+        });
+    }
+
+    show() {
+        this.$input.value = '';
+        super.show();
+        setTimeout(() => this.$input.focus(), 100);
+    }
+
+    _join() {
+        const code = this.$input.value;
+        if (code && code.trim()) {
+            Events.fire('join-room', code.trim());
+            this.hide();
+        }
+    }
+}
+
 
 class ChatUI {
     constructor() {
@@ -820,6 +857,7 @@ class Snapdrop {
         Events.on('load', e => {
             const receiveDialog = new ReceiveDialog();
             const nameDialog = new NameDialog();
+            const pairDialog = new PairDialog();
             const chatUI = new ChatUI();
             const toast = new Toast();
             const notifications = new Notifications();

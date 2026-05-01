@@ -94,6 +94,14 @@ class SnapdropServer {
                     }
                 }
                 break;
+            case 'join-room':
+                if (message.room) {
+                    this._leaveRoom(sender);
+                    sender.ip = 'room-' + message.room;
+                    this._joinRoom(sender);
+                    console.log(`[Discovery] Peer manually joined room: ${sender.ip}`);
+                }
+                break;
         }
 
         // relay message to recipient

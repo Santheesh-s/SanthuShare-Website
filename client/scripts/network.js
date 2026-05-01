@@ -8,6 +8,7 @@ class ServerConnection {
         Events.on('beforeunload', e => this._disconnect());
         Events.on('pagehide', e => this._disconnect());
         Events.on('update-name', name => this.send({ type: 'update-name', name: name.detail }));
+        Events.on('join-room', room => this.send({ type: 'join-room', room: room.detail }));
         document.addEventListener('visibilitychange', e => this._onVisibilityChange());
     }
 
