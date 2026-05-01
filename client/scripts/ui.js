@@ -21,6 +21,11 @@ function setupDisplayName(me) {
     $displayName.textContent = 'You are known as ' + _me.displayName;
     $displayName.title = _me.deviceName;
     
+    const $myCode = document.getElementById('myCode');
+    if ($myCode && _me.pairingCode) {
+        $myCode.textContent = _me.pairingCode;
+    }
+    
     if (!$displayName.dataset.bound) {
         $displayName.style.cursor = 'pointer';
         $displayName.style.textDecoration = 'underline';
@@ -34,6 +39,10 @@ function setupDisplayName(me) {
 
 Events.on('display-name', e => {
     setupDisplayName(e.detail.message || e.detail);
+});
+
+Events.on('pair-error', e => {
+    alert(e.detail);
 });
 
 class PeersUI {
@@ -555,7 +564,7 @@ class PairDialog extends Dialog {
     _join() {
         const code = this.$input.value;
         if (code && code.trim()) {
-            Events.fire('join-room', code.trim());
+            Events.fire('pair-with-code', code.trim());
             this.hide();
         }
     }

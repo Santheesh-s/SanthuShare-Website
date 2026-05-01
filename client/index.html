@@ -77,6 +77,7 @@
         </svg>
         <div id="displayName" placeholder="The easiest way to transfer data across devices"></div>
         <div class="font-body2">You can be discovered by everyone on this network</div>
+        <div class="font-body2" style="margin-top: 5px; font-weight: bold;">Your Code: <span id="myCode">...</span></div>
     </footer>
     <!-- Receive Dialog -->
     <x-dialog id="receiveDialog">
@@ -120,10 +121,10 @@
             <x-paper shadow="2">
                 <h3>Pair Manually</h3>
                 <div class="row">
-                    <input type="number" id="pairInput" class="textarea grow" placeholder="Enter 5-digit code" autocomplete="off" autofocus>
+                    <input type="number" id="pairInput" class="textarea grow" placeholder="Enter peer's 5-digit code" autocomplete="off" autofocus>
                 </div>
                 <div class="row-reverse">
-                    <button class="button" id="joinRoomBtn" title="Join Room">Connect</button>
+                    <button class="button" id="joinRoomBtn" title="Pair">Connect</button>
                     <button class="button" close>Cancel</button>
                 </div>
             </x-paper>

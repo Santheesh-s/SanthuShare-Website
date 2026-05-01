@@ -1,4 +1,4 @@
-var CACHE_NAME = 'santhushare-cache-v15';
+var CACHE_NAME = 'santhushare-cache-v16';
 var urlsToCache = [
   'index.html',
   './',

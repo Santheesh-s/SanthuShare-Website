@@ -9,6 +9,7 @@ class ServerConnection {
         Events.on('pagehide', e => this._disconnect());
         Events.on('update-name', name => this.send({ type: 'update-name', name: name.detail }));
         Events.on('join-room', room => this.send({ type: 'join-room', room: room.detail }));
+        Events.on('pair-with-code', code => this.send({ type: 'pair-with-code', code: code.detail }));
         document.addEventListener('visibilitychange', e => this._onVisibilityChange());
     }
 
@@ -48,6 +49,9 @@ class ServerConnection {
                 break;
             case 'display-name':
                 Events.fire('display-name', msg);
+                break;
+            case 'pair-error':
+                Events.fire('pair-error', msg.error);
                 break;
             default:
                 console.error('WS: unkown message type', msg);

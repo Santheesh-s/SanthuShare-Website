@@ -45,12 +45,13 @@ class SnapdropServer {
         peer.socket.on('error', console.error);
         this._keepAlive(peer);
 
-        // send displayName
+        // send displayName and pairingCode
         this._send(peer, {
             type: 'display-name',
             message: {
                 displayName: peer.name.displayName,
-                deviceName: peer.name.deviceName
+                deviceName: peer.name.deviceName,
+                pairingCode: peer.pairingCode
             }
         });
     }
@@ -91,6 +92,42 @@ class SnapdropServer {
                             type: 'peer-updated',
                             peer: sender.getInfo()
                         });
+                    }
+                }
+                break;
+            case 'pair-with-code':
+                if (message.code) {
+                    let targetPeer = null;
+                    // Find the peer with the matching pairing code
+                    for (const room in this._rooms) {
+                        for (const peerId in this._rooms[room]) {
+                            if (this._rooms[room][peerId].pairingCode === message.code) {
+                                targetPeer = this._rooms[room][peerId];
+                                break;
+                            }
+                        }
+                        if (targetPeer) break;
+                    }
+                    
+                    if (targetPeer && targetPeer.id !== sender.id) {
+                        // Create a new private room
+                        const newRoom = 'pair-' + sender.pairingCode + '-' + targetPeer.pairingCode;
+                        
+                        // Leave current rooms
+                        this._leaveRoom(sender);
+                        this._leaveRoom(targetPeer);
+                        
+                        // Assign new room
+                        sender.ip = newRoom;
+                        targetPeer.ip = newRoom;
+                        
+                        // Join new room
+                        this._joinRoom(sender);
+                        this._joinRoom(targetPeer);
+                        
+                        console.log(`[Discovery] Peer ${sender.id} paired with ${targetPeer.id} via code ${message.code}. Room: ${newRoom}`);
+                    } else {
+                        this._send(sender, { type: 'pair-error', error: 'Code not found or invalid' });
                     }
                 }
                 break;
@@ -214,6 +251,8 @@ class Peer {
         this.rtcSupported = request.url.indexOf('webrtc') > -1;
         // set name 
         this._setName(request);
+        // generate unique 5-digit pairing code
+        this.pairingCode = Math.floor(10000 + Math.random() * 90000).toString();
         // for keepalive
         this.timerId = 0;
         this.lastBeat = Date.now();
