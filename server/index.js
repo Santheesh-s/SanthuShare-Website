@@ -33,6 +33,8 @@ class SnapdropServer {
         this._wss.on('headers', (headers, response) => this._onHeaders(headers, response));
 
         this._rooms = {};
+        this._peerRooms = {};
+        this._peerCodes = {};
 
         server.listen(port, () => {
             console.log('Santhushare is running on port', port);
@@ -40,6 +42,16 @@ class SnapdropServer {
     }
 
     _onConnection(peer) {
+        // Restore previous room and pairing code if the peer is reconnecting
+        if (this._peerRooms[peer.id]) {
+            peer.ip = this._peerRooms[peer.id];
+        }
+        if (this._peerCodes[peer.id]) {
+            peer.pairingCode = this._peerCodes[peer.id];
+        } else {
+            this._peerCodes[peer.id] = peer.pairingCode;
+        }
+
         this._joinRoom(peer);
         peer.socket.on('message', message => this._onMessage(peer, message));
         peer.socket.on('error', console.error);
@@ -120,6 +132,10 @@ class SnapdropServer {
                         // Assign new room
                         sender.ip = newRoom;
                         targetPeer.ip = newRoom;
+                        
+                        // Remember the pairing so reconnects don't break it
+                        this._peerRooms[sender.id] = newRoom;
+                        this._peerRooms[targetPeer.id] = newRoom;
                         
                         // Join new room
                         this._joinRoom(sender);
