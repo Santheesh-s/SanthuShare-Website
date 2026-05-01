@@ -1,4 +1,4 @@
-var CACHE_NAME = 'santhushare-cache-v18';
+var CACHE_NAME = 'santhushare-cache-v19';
 var urlsToCache = [
   'index.html',
   './',
@@ -20,6 +20,7 @@ self.addEventListener('install', function(event) {
         return cache.addAll(urlsToCache);
       })
   );
+  self.skipWaiting();
 });
 
 
@@ -54,4 +55,5 @@ self.addEventListener('activate', function(event) {
       );
     })
   );
+  event.waitUntil(clients.claim());
 });
