@@ -242,7 +242,15 @@ class Peer {
             if (ipLower.startsWith('fc') || ipLower.startsWith('fd') || ipLower.startsWith('fe8') || ip === '::1') {
                 this.ip = 'local';
             } else {
-                this.ip = ip;
+                // Group public IPv6 addresses by their /64 prefix (first 4 blocks).
+                // Unlike IPv4 NAT, mobile hotspots assign unique public IPv6 addresses to each device.
+                // Grouping by the /64 prefix ensures devices on the same hotspot see each other.
+                let ipv6Parts = ipLower.split(':');
+                if (ipv6Parts.length >= 4) {
+                    this.ip = ipv6Parts.slice(0, 4).join(':');
+                } else {
+                    this.ip = ipLower;
+                }
             }
         }
     }
