@@ -212,6 +212,15 @@ class Peer {
     }
 
     _setIP(request) {
+        // If a specific room is provided via URL (e.g. ?room=myhotspot), use it!
+        // This is the most reliable way to link devices on complex mobile hotspots.
+        const roomMatch = request.url.match(/[?&]room=([^&]+)/);
+        if (roomMatch) {
+            this.ip = 'room-' + roomMatch[1];
+            console.log(`[Discovery] Peer connected via custom room. Room assigned: ${this.ip}`);
+            return;
+        }
+
         let ip;
         if (request.headers['x-forwarded-for']) {
             ip = request.headers['x-forwarded-for'].split(/\s*,\s*/)[0];
