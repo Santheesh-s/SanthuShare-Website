@@ -35,7 +35,6 @@ class SnapdropServer {
         this._rooms = {};
         this._peerRooms = {};
         this._peerCodes = {};
-        this._peerNames = {};
 
         server.listen(port, () => {
             console.log('Santhushare is running on port', port);
@@ -52,16 +51,10 @@ class SnapdropServer {
         } else {
             this._peerCodes[peer.id] = peer.pairingCode;
         }
-        if (this._peerNames[peer.id]) {
-            peer.name.displayName = this._peerNames[peer.id];
-        } else {
-            this._peerNames[peer.id] = peer.name.displayName;
-        }
 
         this._joinRoom(peer);
         peer.socket.on('message', message => this._onMessage(peer, message));
         peer.socket.on('error', console.error);
-        peer.socket.on('close', () => this._leaveRoom(peer));
         this._keepAlive(peer);
 
         // send displayName and pairingCode
@@ -99,7 +92,6 @@ class SnapdropServer {
             case 'update-name':
                 if (message.name && message.name.length < 40) {
                     sender.name.displayName = message.name;
-                    this._peerNames[sender.id] = message.name; // Save the updated name
                     this._send(sender, {
                         type: 'display-name',
                         message: sender.getInfo().name
@@ -217,7 +209,6 @@ class SnapdropServer {
         // delete the peer
         delete this._rooms[peer.ip][peer.id];
 
-        peer.socket.terminate();
         //if room is empty, delete the room
         if (!Object.keys(this._rooms[peer.ip]).length) {
             delete this._rooms[peer.ip];
@@ -232,7 +223,7 @@ class SnapdropServer {
 
     _send(peer, message) {
         if (!peer) return;
-        if (peer.socket.readyState !== 1) return; // 1 is WebSocket.OPEN
+        if (this._wss.readyState !== this._wss.OPEN) return;
         message = JSON.stringify(message);
         peer.socket.send(message, error => '');
     }
@@ -245,6 +236,7 @@ class SnapdropServer {
         }
         if (Date.now() - peer.lastBeat > 2 * timeout) {
             this._leaveRoom(peer);
+            peer.socket.terminate();
             return;
         }
 
