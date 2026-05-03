@@ -117,25 +117,19 @@ class PeerUI {
 
     html() {
         return `
-            <div style="position:relative;">
-                <label class="column center" title="Click to send files">
-                    <input type="file" multiple class="file-input">
-                    <x-icon shadow="1">
-                        <svg class="icon"><use xlink:href="#"/></svg>
-                    </x-icon>
-                    <div class="progress">
-                      <div class="circle"></div>
-                      <div class="circle right"></div>
-                    </div>
-                    <div class="name font-subheading"></div>
-                    <div class="device-name font-body2"></div>
-                    <div class="transfer-stats font-body2" style="font-size: 0.75rem; margin-top: 4px; display: none; color: var(--text-color-muted, #888);"></div>
-                    <progress class="file-progress" max="1" value="0" style="display:none; width: 80%; margin-top: 8px; height: 6px; border-radius: 4px;"></progress>
-                    <div class="status font-body2"></div>
-                </label>
-                <button class="chat-button icon-button" title="Open Chat" style="position: absolute; top: 35px; right: 0px; z-index: 10; cursor: pointer;">
-                    <svg viewBox="0 0 24 24" style="width:24px; height:24px; fill:var(--text-color);"><use xlink:href="#chat"/></svg>
-                </button>
+            <div class="column center peer-card" style="position:relative; cursor:pointer;" title="Click to open Chat">
+                <x-icon shadow="1">
+                    <svg class="icon"><use xlink:href="#"/></svg>
+                </x-icon>
+                <div class="progress">
+                  <div class="circle"></div>
+                  <div class="circle right"></div>
+                </div>
+                <div class="name font-subheading"></div>
+                <div class="device-name font-body2"></div>
+                <div class="transfer-stats font-body2" style="font-size: 0.75rem; margin-top: 4px; display: none; color: var(--text-color-muted, #888);"></div>
+                <progress class="file-progress" max="1" value="0" style="display:none; width: 80%; margin-top: 8px; height: 6px; border-radius: 4px;"></progress>
+                <div class="status font-body2"></div>
             </div>`
     }
 
@@ -160,10 +154,7 @@ class PeerUI {
     }
 
     _bindListeners(el) {
-        el.querySelectorAll('input').forEach(input => {
-            input.addEventListener('change', e => this._onFilesSelected(e));
-        });
-        el.querySelector('.chat-button').addEventListener('click', e => this._onChatClick(e));
+        el.querySelector('.peer-card').addEventListener('click', e => this._onChatClick(e));
         el.addEventListener('drop', e => this._onDrop(e));
         el.addEventListener('dragend', e => this._onDragEnd(e));
         el.addEventListener('dragleave', e => this._onDragEnd(e));
@@ -195,32 +186,7 @@ class PeerUI {
     }
 
     async _onFilesSelected(e) {
-        const $input = e.target;
-        const files = $input.files;
-        
-        if (files.length > 0 && $input.classList.contains('folder-input')) {
-            this.$el.querySelector('.status').textContent = 'Zipping folder...';
-            const zip = new JSZip();
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const path = file.webkitRelativePath || file.name;
-                zip.file(path, file);
-            }
-            this.$el.querySelector('.status').textContent = 'Generating zip...';
-            const blob = await zip.generateAsync({ type: 'blob' });
-            blob.name = 'shared-folder.zip';
-            Events.fire('files-selected', {
-                files: [blob],
-                to: this._peer.id
-            });
-            this.$el.querySelector('.status').textContent = '';
-        } else if (files.length > 0) {
-            Events.fire('files-selected', {
-                files: files,
-                to: this._peer.id
-            });
-        }
-        $input.value = null; // reset input
+        // Disabled file selection directly from the peer icon, as it is now handled via the chatbox
     }
 
     setProgress(progress, bytes, total) {
@@ -590,9 +556,28 @@ class ChatUI {
         Events.on('text-received', e => this._onTextReceived(e.detail));
         Events.on('open-chat', e => this.show(e.detail));
         Events.on('peer-name-changed', e => this._onPeerNameChanged(e.detail));
+        Events.on('network-type', e => this._onNetworkType(e.detail));
+        Events.on('file-transfer-start', e => this._onFileTransferStart(e.detail));
+        Events.on('file-progress', e => this._onFileProgress(e.detail));
+        
+        this.$fileInput = document.getElementById('chat-file-input');
+        this.$folderInput = document.getElementById('chat-folder-input');
+        this.$status = document.getElementById('chatbox-status');
+        this.$dropOverlay = document.getElementById('chatbox-drop-overlay');
+        
+        if (this.$fileInput) this.$fileInput.addEventListener('change', e => this._onFilesSelected(e));
+        if (this.$folderInput) this.$folderInput.addEventListener('change', e => this._onFilesSelected(e));
+        
+        this.$el.addEventListener('drop', e => this._onDrop(e));
+        this.$el.addEventListener('dragover', e => { e.preventDefault(); if (this._currentPeer) this.$dropOverlay.style.display = 'flex'; });
+        this.$el.addEventListener('dragleave', e => {
+            if (e.target === this.$dropOverlay) this.$dropOverlay.style.display = 'none';
+        });
         
         this._currentPeer = null;
         this._history = {};
+        this._fileProgressElements = {}; // Maps messageId -> DOM elements
+        this._networkTypes = {}; // Maps peerId -> 'WiFi' | 'Internet'
     }
     
     show(peerId) {
@@ -600,6 +585,14 @@ class ChatUI {
         const $peer = document.getElementById(peerId);
         if ($peer && $peer.ui) {
             this.$title.textContent = 'Chat with ' + $peer.ui._displayName();
+        }
+        
+        if (this._networkTypes[peerId]) {
+            this.$status.textContent = 'Securely connected via ' + this._networkTypes[peerId];
+            this.$status.classList.add('secure');
+        } else {
+            this.$status.textContent = 'Connecting securely...';
+            this.$status.classList.remove('secure');
         }
         
         this.$el.classList.add('active');
@@ -657,16 +650,222 @@ class ChatUI {
         }
     }
     
+    _onNetworkType(detail) {
+        this._networkTypes[detail.peerId] = detail.type;
+        if (this._currentPeer === detail.peerId) {
+            this.$status.textContent = 'Securely connected via ' + detail.type;
+            this.$status.classList.add('secure');
+        }
+    }
+    
+    async _onFilesSelected(e) {
+        const $input = e.target;
+        const files = $input.files;
+        if (files.length === 0 || !this._currentPeer) return;
+        
+        let finalFiles = files;
+        if ($input.id === 'chat-folder-input') {
+            const zip = new JSZip();
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const path = file.webkitRelativePath || file.name;
+                zip.file(path, file);
+            }
+            this.$status.textContent = 'Generating zip from folder...';
+            const blob = await zip.generateAsync({ type: 'blob' });
+            blob.name = 'shared-folder.zip';
+            blob.size = blob.size;
+            blob.type = 'application/zip';
+            finalFiles = [blob];
+            if (this._networkTypes[this._currentPeer]) {
+                this.$status.textContent = 'Securely connected via ' + this._networkTypes[this._currentPeer];
+            }
+        }
+        
+        Events.fire('files-selected', {
+            files: finalFiles,
+            to: this._currentPeer
+        });
+        $input.value = null;
+    }
+    
+    async _onDrop(e) {
+        e.preventDefault();
+        this.$dropOverlay.style.display = 'none';
+        if (!this._currentPeer) return;
+        
+        const items = e.dataTransfer.items;
+        if (!items || items.length === 0) return;
+        
+        let hasFolder = false;
+        for (let i = 0; i < items.length; i++) {
+            const entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+            if (entry && entry.isDirectory) {
+                hasFolder = true;
+                break;
+            }
+        }
+        
+        if (hasFolder) {
+            this.$status.textContent = 'Zipping folder...';
+            const zip = window.JSZip ? new JSZip() : null;
+            if (!zip) return;
+            const promises = [];
+            
+            const traverseEntry = (entry, zip, path) => {
+                return new Promise((resolve, reject) => {
+                    if (entry.isFile) {
+                        entry.file(file => { zip.file(path + file.name, file); resolve(); }, reject);
+                    } else if (entry.isDirectory) {
+                        const dirReader = entry.createReader();
+                        dirReader.readEntries(async entries => {
+                            const ps = [];
+                            for (let i = 0; i < entries.length; i++) {
+                                ps.push(traverseEntry(entries[i], zip, path + entry.name + '/'));
+                            }
+                            await Promise.all(ps);
+                            resolve();
+                        }, reject);
+                    }
+                });
+            };
+            
+            for (let i = 0; i < items.length; i++) {
+                const entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+                if (entry) promises.push(traverseEntry(entry, zip, ""));
+            }
+            await Promise.all(promises);
+            this.$status.textContent = 'Generating zip...';
+            const blob = await zip.generateAsync({ type: 'blob' });
+            blob.name = 'shared-folder.zip';
+            blob.type = 'application/zip';
+            Events.fire('files-selected', { files: [blob], to: this._currentPeer });
+            if (this._networkTypes[this._currentPeer]) {
+                this.$status.textContent = 'Securely connected via ' + this._networkTypes[this._currentPeer];
+            }
+        } else {
+            Events.fire('files-selected', { files: e.dataTransfer.files, to: this._currentPeer });
+        }
+    }
+    
+    _onFileTransferStart(detail) {
+        const peerId = detail.sender === 'me' ? this._currentPeer : detail.sender;
+        const msgId = detail.name + '-' + detail.size;
+        this._appendMessage(peerId, {
+            id: msgId,
+            isFile: true,
+            name: detail.name,
+            size: detail.size,
+            sender: detail.sender,
+            isReceiving: detail.isReceiving
+        });
+    }
+    
+    _onFileProgress(detail) {
+        const peerId = detail.sender === 'me' ? this._currentPeer : detail.sender;
+        if (!peerId) return;
+        const msgId = detail.name + '-' + detail.total;
+        
+        if (this._currentPeer === peerId && this._fileProgressElements[msgId]) {
+            const els = this._fileProgressElements[msgId];
+            
+            if (detail.progress === -1) {
+                els.stats.textContent = 'Cancelled';
+                if (els.cancelBtn) els.cancelBtn.style.display = 'none';
+                els.progress.style.display = 'none';
+                return;
+            }
+            
+            els.progress.value = detail.progress;
+            
+            const now = Date.now();
+            if (!els.startTime) {
+                els.startTime = now;
+                els.lastTime = now;
+                els.lastBytes = 0;
+                els.speedStats = [];
+            }
+            
+            const timeDiff = (now - els.lastTime) / 1000;
+            if (timeDiff >= 0.5 && detail.bytes) {
+                const bytesDiff = detail.bytes - els.lastBytes;
+                let speed = bytesDiff / timeDiff;
+                els.speedStats.push(speed);
+                if (els.speedStats.length > 5) els.speedStats.shift();
+                const avgSpeed = els.speedStats.reduce((a, b) => a + b, 0) / els.speedStats.length;
+                
+                els.stats.textContent = this._formatSpeedAndRemaining(avgSpeed, detail.total - detail.bytes);
+                els.lastTime = now;
+                els.lastBytes = detail.bytes;
+            }
+            
+            if (detail.progress >= 1) {
+                els.stats.textContent = 'Completed';
+                if (els.cancelBtn) els.cancelBtn.style.display = 'none';
+            }
+        }
+    }
+    
+    _formatSpeedAndRemaining(bytesPerSec, remainingBytes) {
+        let speedStr = '';
+        if (bytesPerSec >= 1e6) speedStr = (bytesPerSec / 1e6).toFixed(1) + ' MB/s';
+        else if (bytesPerSec >= 1000) speedStr = Math.round(bytesPerSec / 1000) + ' KB/s';
+        else speedStr = Math.round(bytesPerSec) + ' B/s';
+
+        let timeStr = '';
+        if (bytesPerSec > 0) {
+            const seconds = Math.round(remainingBytes / bytesPerSec);
+            if (seconds > 60) timeStr = Math.floor(seconds / 60) + 'm ' + (seconds % 60) + 's';
+            else timeStr = seconds + 's';
+        } else {
+            timeStr = '...';
+        }
+        return `${speedStr} • ${timeStr} left`;
+    }
+    
     _renderHistory() {
         if (!this._currentPeer) return;
         
         this.$messages.innerHTML = '';
+        this._fileProgressElements = {};
         const history = this._history[this._currentPeer] || [];
         
         for (let msg of history) {
             const msgEl = document.createElement('div');
             msgEl.className = 'chat-message ' + (msg.sender === 'me' ? 'me' : 'them');
-            if (isURL(msg.text)) {
+            
+            if (msg.isFile) {
+                msgEl.classList.add('chat-file-transfer');
+                const title = document.createElement('div');
+                title.textContent = (msg.isReceiving ? 'Receiving: ' : 'Sending: ') + msg.name;
+                title.style.fontWeight = 'bold';
+                title.style.fontSize = '12px';
+                
+                const progress = document.createElement('progress');
+                progress.max = 1;
+                progress.value = 0;
+                
+                const stats = document.createElement('div');
+                stats.className = 'chat-file-stats';
+                stats.textContent = 'Waiting...';
+                
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = 'Cancel';
+                cancelBtn.style.cssText = 'padding: 2px 8px; font-size: 10px; margin-top: 4px; align-self: flex-start; cursor: pointer; background: transparent; border: 1px solid var(--text-color); color: var(--text-color); border-radius: 4px; opacity: 0.7;';
+                cancelBtn.onclick = () => {
+                    Events.fire('cancel-transfer', this._currentPeer);
+                    stats.textContent = 'Cancelled';
+                    cancelBtn.style.display = 'none';
+                    progress.style.display = 'none';
+                };
+                
+                this._fileProgressElements[msg.id] = { progress, stats, cancelBtn };
+                
+                msgEl.appendChild(title);
+                msgEl.appendChild(progress);
+                msgEl.appendChild(stats);
+                msgEl.appendChild(cancelBtn);
+            } else if (isURL(msg.text)) {
                 const $a = document.createElement('a');
                 $a.href = msg.text;
                 $a.target = '_blank';

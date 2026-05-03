@@ -134,6 +134,15 @@ class Peer {
             size: file.size
         });
         this._currentFileSize = file.size;
+        this._currentFileName = file.name;
+        
+        Events.fire('file-transfer-start', {
+            sender: 'me',
+            name: file.name,
+            size: file.size,
+            isReceiving: false
+        });
+        
         this._chunker = new FileChunker(file,
             chunk => this._sendChunk(chunk),
             offset => this._onPartitionEnd(offset));
@@ -143,7 +152,7 @@ class Peer {
     _sendChunk(chunk) {
         this._send(chunk);
         if (this._conn && this._channel) {
-            if (this._channel.bufferedAmount > 1024 * 1024 * 2) { // 2MB limit
+            if (this._channel.bufferedAmount > 1024 * 1024 * 2) { // 2MB limit (safe limit to prevent WebRTC crashes on mobile)
                  return false; // tell chunker to pause
             }
         }
@@ -170,7 +179,7 @@ class Peer {
     }
 
     _sendProgress(progress) {
-        this.sendJSON({ type: 'progress', progress: progress });
+        this.sendJSON({ type: 'progress', progress: progress, name: this._currentFileName });
     }
 
     _onMessage(message) {
@@ -193,6 +202,9 @@ class Peer {
             case 'progress':
                 this._onDownloadProgress(message.progress);
                 break;
+            case 'transfer-cancelled':
+                this._onTransferCancelled();
+                break;
             case 'transfer-complete':
                 this._onTransferCompleted();
                 break;
@@ -205,6 +217,15 @@ class Peer {
     _onFileHeader(header) {
         this._lastProgress = 0;
         this._currentFileSize = header.size;
+        this._currentFileName = header.name;
+        
+        Events.fire('file-transfer-start', {
+            sender: this._peerId,
+            name: header.name,
+            size: header.size,
+            isReceiving: true
+        });
+        
         this._digester = new FileDigester({
             name: header.name,
             mime: header.mime,
@@ -230,7 +251,8 @@ class Peer {
              sender: this._peerId, 
              progress: progress,
              total: this._currentFileSize,
-             bytes: progress * (this._currentFileSize || 0)
+             bytes: progress * (this._currentFileSize || 0),
+             name: this._currentFileName
         });
     }
 
@@ -245,6 +267,46 @@ class Peer {
         this._busy = false;
         this._dequeueFile();
         Events.fire('notify-user', 'File transfer completed.');
+    }
+    
+    cancelTransfer() {
+        if (this._chunker) {
+            this._chunker._paused = true;
+            this._chunker = null;
+        }
+        this._digester = null;
+        this._reader = null;
+        this._busy = false;
+        this.sendJSON({ type: 'transfer-cancelled' });
+        
+        Events.fire('file-progress', { 
+             sender: this._peerId, 
+             progress: -1,
+             name: this._currentFileName,
+             total: this._currentFileSize
+        });
+        
+        this._dequeueFile();
+    }
+    
+    _onTransferCancelled() {
+        if (this._chunker) {
+            this._chunker._paused = true;
+            this._chunker = null;
+        }
+        this._digester = null;
+        this._reader = null;
+        this._busy = false;
+        
+        Events.fire('file-progress', { 
+             sender: this._peerId, 
+             progress: -1,
+             name: this._currentFileName,
+             total: this._currentFileSize
+        });
+        
+        this._dequeueFile();
+        Events.fire('notify-user', 'File transfer was cancelled by peer.');
     }
 
     sendText(text) {
@@ -333,13 +395,36 @@ class RTCPeer extends Peer {
         channel.binaryType = 'arraybuffer';
         channel.onmessage = e => this._onMessage(e.data);
         channel.onclose = e => this._onChannelClosed();
-        channel.bufferedAmountLowThreshold = 1024 * 512; // 512KB
+        channel.bufferedAmountLowThreshold = 1024 * 512; // 512KB safe limit
         channel.onbufferedamountlow = () => {
             if (this._chunker && this._chunker._paused) {
                 this._chunker.resume();
             }
         };
         this._channel = channel;
+        this._checkNetworkType();
+    }
+    
+    async _checkNetworkType() {
+        if (!this._conn) return;
+        try {
+            const stats = await this._conn.getStats();
+            let activePair;
+            stats.forEach(report => {
+                if (report.type === 'candidate-pair' && report.state === 'succeeded' && (report.nominated || report.selected)) {
+                    activePair = report;
+                }
+            });
+            if (activePair) {
+                const localCandidate = stats.get(activePair.localCandidateId);
+                if (localCandidate) {
+                    const isWiFi = localCandidate.candidateType === 'host';
+                    Events.fire('network-type', { peerId: this._peerId, type: isWiFi ? 'WiFi' : 'Internet' });
+                }
+            }
+        } catch (e) {
+            console.error('Failed to get ICE stats', e);
+        }
     }
 
     _onChannelClosed() {
@@ -410,6 +495,7 @@ class PeersManager {
         Events.on('peers', e => this._onPeers(e.detail));
         Events.on('files-selected', e => this._onFilesSelected(e.detail));
         Events.on('send-text', e => this._onSendText(e.detail));
+        Events.on('cancel-transfer', e => this._onCancelTransfer(e.detail));
         Events.on('peer-left', e => this._onPeerLeft(e.detail));
     }
 
@@ -445,6 +531,12 @@ class PeersManager {
     _onSendText(message) {
         this.peers[message.to].sendText(message.text);
     }
+    
+    _onCancelTransfer(peerId) {
+        if (this.peers[peerId]) {
+            this.peers[peerId].cancelTransfer();
+        }
+    }
 
     _onPeerLeft(peerId) {
         const peer = this.peers[peerId];
@@ -479,8 +571,8 @@ class WSPeer extends Peer {
 class FileChunker {
 
     constructor(file, onChunk, onPartitionEnd) {
-        this._chunkSize = 256 * 1024; // 256 KB
-        this._maxPartitionSize = 1.6e7; // 16 MB (improves transfer speed significantly)
+        this._chunkSize = 256 * 1024; // 256 KB safe limit
+        this._maxPartitionSize = 1.6e7; // 16 MB partitions
         this._offset = 0;
         this._partitionSize = 0;
         this._file = file;
