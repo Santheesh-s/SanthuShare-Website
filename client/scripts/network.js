@@ -16,12 +16,33 @@ class ServerConnection {
     _connect() {
         clearTimeout(this._reconnectTimer);
         if (this._isConnected() || this._isConnecting()) return;
+        
+        // Show waking note if connection takes too long (Render free tier)
+        const wakingTimer = setTimeout(() => {
+            const note = document.getElementById('wakingNote');
+            if (note) note.style.display = 'block';
+        }, 5000);
+
         const ws = new WebSocket(this._endpoint() + window.location.search);
         ws.binaryType = 'arraybuffer';
-        ws.onopen = e => console.log('WS: server connected');
+        ws.onopen = e => {
+            console.log('WS: server connected');
+            clearTimeout(wakingTimer);
+            const splash = document.getElementById('splash');
+            if (splash) {
+                splash.style.opacity = '0';
+                setTimeout(() => splash.style.display = 'none', 500);
+            }
+        };
         ws.onmessage = e => this._onMessage(e.data);
-        ws.onclose = e => this._onDisconnect();
-        ws.onerror = e => console.error(e);
+        ws.onclose = e => {
+            clearTimeout(wakingTimer);
+            this._onDisconnect();
+        };
+        ws.onerror = e => {
+            clearTimeout(wakingTimer);
+            console.error(e);
+        };
         this._socket = ws;
     }
 

@@ -28,9 +28,13 @@ class SnapdropServer {
         // Serve static files from client directory
         app.use(express.static(path.join(__dirname, '../client')));
 
+        // Health check for Render
+        app.get('/ping', (req, res) => res.send('pong'));
+
         this._wss = new WebSocket.Server({ server });
         this._wss.on('connection', (socket, request) => this._onConnection(new Peer(socket, request)));
         this._wss.on('headers', (headers, response) => this._onHeaders(headers, response));
+        this._wss.on('error', error => console.error('WebSocket Server Error:', error));
 
         this._rooms = {};
         this._peerRooms = {};
@@ -122,26 +126,22 @@ class SnapdropServer {
                     }
                     
                     if (targetPeer && targetPeer.id !== sender.id) {
-                        // Create a new private room
-                        const newRoom = 'pair-' + sender.pairingCode + '-' + targetPeer.pairingCode;
+                        // Instead of destroying the target's current session, join their room!
+                        const targetRoom = targetPeer.ip;
                         
-                        // Leave current rooms
+                        // Sender leaves their current room
                         this._leaveRoom(sender);
-                        this._leaveRoom(targetPeer);
                         
-                        // Assign new room
-                        sender.ip = newRoom;
-                        targetPeer.ip = newRoom;
+                        // Sender joins target's room
+                        sender.ip = targetRoom;
                         
                         // Remember the pairing so reconnects don't break it
-                        this._peerRooms[sender.id] = newRoom;
-                        this._peerRooms[targetPeer.id] = newRoom;
+                        this._peerRooms[sender.id] = targetRoom;
                         
                         // Join new room
                         this._joinRoom(sender);
-                        this._joinRoom(targetPeer);
                         
-                        console.log(`[Discovery] Peer ${sender.id} paired with ${targetPeer.id} via code ${message.code}. Room: ${newRoom}`);
+                        console.log(`[Discovery] Peer ${sender.id} joined ${targetPeer.id}'s room (${targetRoom}) via code ${message.code}.`);
                     } else {
                         this._send(sender, { type: 'pair-error', error: 'Code not found or invalid' });
                     }

@@ -678,7 +678,9 @@ class ChatUI {
                 zip.file(path, file);
             }
             this.$status.textContent = 'Generating zip from folder...';
-            const blob = await zip.generateAsync({ type: 'blob' });
+            const blob = await zip.generateAsync({ type: 'blob' }, (meta) => {
+                this.$status.textContent = `Generating zip... ${meta.percent.toFixed(0)}%`;
+            });
             blob.name = 'shared-folder.zip';
             blob.size = blob.size;
             blob.type = 'application/zip';
@@ -742,7 +744,9 @@ class ChatUI {
             }
             await Promise.all(promises);
             this.$status.textContent = 'Generating zip...';
-            const blob = await zip.generateAsync({ type: 'blob' });
+            const blob = await zip.generateAsync({ type: 'blob' }, (meta) => {
+                this.$status.textContent = `Generating zip... ${meta.percent.toFixed(0)}%`;
+            });
             blob.name = 'shared-folder.zip';
             blob.type = 'application/zip';
             Events.fire('files-selected', { files: [blob], to: this._currentPeer });

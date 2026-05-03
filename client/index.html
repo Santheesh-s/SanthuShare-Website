@@ -37,6 +37,17 @@
 </head>
 
 <body translate="no">
+    <!-- Splash Screen -->
+    <div id="splash" class="full center column" onclick="this.style.opacity='0'; setTimeout(()=>this.style.display='none', 500)" style="z-index: 1000; background: var(--bg-color); transition: opacity 0.5s ease; cursor: pointer;">
+        <svg class="icon logo" style="--icon-size: 120px; margin-bottom: 24px; color: var(--primary-color);">
+            <use xlink:href="#wifi-tethering" />
+        </svg>
+        <h1 style="margin-bottom: 16px;">Santhushare</h1>
+        <div id="connectionStatus" class="font-subheading" style="color: var(--text-muted);">Connecting to server...</div>
+        <div id="wakingNote" class="font-body2" style="margin-top: 24px; opacity: 0.6; display: none;">Render is waking up the server, please wait...</div>
+        <div class="font-body2" style="margin-top: 16px; opacity: 0.4;">(Click to skip)</div>
+    </div>
+
     <header class="row-reverse">
         <a href="#about" class="icon-button" title="About Santhushare">
             <svg class="icon">
@@ -165,33 +176,49 @@
         <x-toast class="row" shadow="1" id="toast">File Transfer Completed</x-toast>
     </div>
     <!-- About Page -->
+    <!-- About Page -->
     <x-about id="about" class="full center column">
-        <section class="center column fade-in">
-            <header class="row-reverse">
-                <a href="#" class="close icon-button">
-                    <svg class="icon">
-                        <use xlink:href="#close" />
-                    </svg>
-                </a>
-            </header>
-            <svg class="icon logo">
+        <div class="fade-in column center" style="max-width: 600px; padding: 32px; background: var(--bg-secondary); border-radius: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--glass-border); position: relative; z-index: 20;">
+            <svg class="icon logo" style="--icon-size: 80px; color: var(--primary-color); margin-bottom: 24px;">
                 <use xlink:href="#wifi-tethering" />
             </svg>
             <h1>Santhushare</h1>
-            <div class="font-subheading">The easiest way to transfer files across devices</div>
-            <div class="row">
-                <a class="icon-button" target="_blank" href="https://github.com/Santheesh-s/SanthuShare-Website/" title="Santhushare on Github" rel="noreferrer">
-                    <svg class="icon">
-                        <use xlink:href="#github" />
-                    </svg>
-                </a>
-                <a class="icon-button" target="_blank" href="https://github.com/Santheesh-s/SanthuShare-Website/blob/master/docs/faq.md" title="Frequently asked questions" rel="noreferrer">
-                    <svg class="icon">
-                        <use xlink:href="#help-outline" />
-                    </svg>
-                </a>
+            <p class="font-subheading" style="margin: 16px 0 32px; opacity: 0.8; text-align: center;">Secure, Private, and Instant Peer-to-Peer File Sharing.</p>
+            
+            <div class="column" style="text-align: left; width: 100%; gap: 16px;">
+                <div class="row center" style="gap: 16px; align-items: flex-start;">
+                    <div style="background: var(--primary-color); color: white; border-radius: 12px; padding: 12px; display: flex;">
+                        <svg class="icon" style="--icon-size: 24px;"><use xlink:href="#group"/></svg>
+                    </div>
+                    <div>
+                        <div style="font-weight: bold;">Private Pairing</div>
+                        <div class="font-body2" style="opacity: 0.7;">Isolated sessions using secure 5-digit codes.</div>
+                    </div>
+                </div>
+                <div class="row center" style="gap: 16px; align-items: flex-start;">
+                    <div style="background: var(--primary-color); color: white; border-radius: 12px; padding: 12px; display: flex;">
+                        <svg class="icon" style="--icon-size: 24px;"><use xlink:href="#chat"/></svg>
+                    </div>
+                    <div>
+                        <div style="font-weight: bold;">Built-in Chat</div>
+                        <div class="font-body2" style="opacity: 0.7;">Send messages and files in a single duplex thread.</div>
+                    </div>
+                </div>
+                <div class="row center" style="gap: 16px; align-items: flex-start;">
+                    <div style="background: var(--primary-color); color: white; border-radius: 12px; padding: 12px; display: flex;">
+                        <svg class="icon" style="--icon-size: 24px;"><use xlink:href="#wifi-tethering"/></svg>
+                    </div>
+                    <div>
+                        <div style="font-weight: bold;">P2P Technology</div>
+                        <div class="font-body2" style="opacity: 0.7;">Direct WebRTC transfer. Your files never touch a server.</div>
+                    </div>
+                </div>
             </div>
-        </section>
+
+            <div class="row" style="margin-top: 40px; gap: 16px;">
+                <a href="#" class="button" style="background: var(--primary-color); color: white; border-radius: 12px; min-width: 150px; display: flex; align-items: center; justify-content: center; height: 48px;">Close</a>
+            </div>
+        </div>
         <x-background></x-background>
     </x-about>
     <!-- SVG Icon Library -->
