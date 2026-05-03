@@ -551,6 +551,12 @@ class ChatUI {
         this.$input = document.getElementById('chat-input');
         
         document.getElementById('chatbox-close').addEventListener('click', e => this.hide());
+        document.getElementById('chatbox-remove-peer').addEventListener('click', e => {
+            if (confirm('Are you sure you want to completely remove this peer and end the secure session?')) {
+                document.cookie = "peerid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                window.location.reload();
+            }
+        });
         document.getElementById('chat-form').addEventListener('submit', e => this._onSend(e));
         
         Events.on('text-received', e => this._onTextReceived(e.detail));
