@@ -2,8 +2,8 @@
 
 :root {
     --icon-size: 24px;
-    --primary-color: #6366f1; /* Modern Indigo */
-    --primary-hover: #4f46e5;
+    --primary-color: #10b981; /* Modern Emerald Green */
+    --primary-hover: #059669;
     --peer-width: 130px;
     --text-color: #1f2937;
     --text-muted: #6b7280;
@@ -14,8 +14,8 @@
 }
 
 [theme="dark"] {
-    --primary-color: #818cf8;
-    --primary-hover: #6366f1;
+    --primary-color: #34d399;
+    --primary-hover: #10b981;
     --text-color: #f3f4f6;
     --text-muted: #9ca3af;
     --bg-color: #0f172a;
@@ -332,23 +332,27 @@ footer {
     bottom: 0;
     left: 0;
     right: 0;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    padding: 24px 0;
+    padding: 16px 24px;
     text-align: center;
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-top: 1px solid var(--glass-border);
+    background: transparent;
     z-index: 10;
-}
-
-footer .logo {
-    --icon-size: 80px;
-    margin-bottom: 8px;
-    color: var(--primary-color);
+    box-sizing: border-box;
 }
 
 footer .font-body2 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    color: var(--primary-color);
+}
+
+footer .logo {
+    --icon-size: 64px;
+    margin-bottom: 8px;
     color: var(--primary-color);
 }
 

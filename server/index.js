@@ -126,22 +126,31 @@ class SnapdropServer {
                     }
                     
                     if (targetPeer && targetPeer.id !== sender.id) {
-                        // Instead of destroying the target's current session, join their room!
                         const targetRoom = targetPeer.ip;
+                        const oldRoom = sender.ip;
                         
-                        // Sender leaves their current room
-                        this._leaveRoom(sender);
-                        
-                        // Sender joins target's room
-                        sender.ip = targetRoom;
-                        
-                        // Remember the pairing so reconnects don't break it
-                        this._peerRooms[sender.id] = targetRoom;
-                        
-                        // Join new room
-                        this._joinRoom(sender);
-                        
-                        console.log(`[Discovery] Peer ${sender.id} joined ${targetPeer.id}'s room (${targetRoom}) via code ${message.code}.`);
+                        // If the sender is already in the target's room, nothing to do
+                        if (oldRoom === targetRoom) return;
+
+                        // Identify all peers in the sender's current room to move them together
+                        // This allows A (with B) to pair with C and bring B along.
+                        if (this._rooms[oldRoom]) {
+                            const peersToMove = Object.values(this._rooms[oldRoom]);
+                            peersToMove.forEach(p => {
+                                this._leaveRoom(p);
+                                p.ip = targetRoom;
+                                this._peerRooms[p.id] = targetRoom;
+                                this._joinRoom(p);
+                            });
+                            console.log(`[Discovery] Merged room ${oldRoom} into ${targetRoom} via code ${message.code}.`);
+                        } else {
+                            // Fallback for isolated sender
+                            this._leaveRoom(sender);
+                            sender.ip = targetRoom;
+                            this._peerRooms[sender.id] = targetRoom;
+                            this._joinRoom(sender);
+                            console.log(`[Discovery] Peer ${sender.id} joined room ${targetRoom} via code ${message.code}.`);
+                        }
                     } else {
                         this._send(sender, { type: 'pair-error', error: 'Code not found or invalid' });
                     }
