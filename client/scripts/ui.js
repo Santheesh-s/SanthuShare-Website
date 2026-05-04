@@ -303,6 +303,7 @@ class PeerUI {
             await Promise.all(promises);
             this.$el.querySelector('.status').textContent = 'Generating zip...';
             const blob = await zip.generateAsync({ type: 'blob' });
+            this.$el.querySelector('.status').textContent = '';
             blob.name = 'shared-folder.zip';
             Events.fire('files-selected', {
                 files: [blob],
@@ -594,7 +595,7 @@ class ChatUI {
         }
         
         if (this._networkTypes[peerId]) {
-            this.$status.textContent = 'Securely connected via ' + this._networkTypes[peerId];
+            this.$status.textContent = 'Securely connected';
             this.$status.classList.add('secure');
         } else {
             this.$status.textContent = 'Connecting securely...';
@@ -681,6 +682,7 @@ class ChatUI {
             const blob = await zip.generateAsync({ type: 'blob' }, (meta) => {
                 this.$status.textContent = `Generating zip... ${meta.percent.toFixed(0)}%`;
             });
+            this.$status.textContent = ''; // Clear status so it doesn't hang at 100%
             blob.name = 'shared-folder.zip';
             blob.size = blob.size;
             blob.type = 'application/zip';
@@ -747,6 +749,7 @@ class ChatUI {
             const blob = await zip.generateAsync({ type: 'blob' }, (meta) => {
                 this.$status.textContent = `Generating zip... ${meta.percent.toFixed(0)}%`;
             });
+            this.$status.textContent = ''; // Clear status
             blob.name = 'shared-folder.zip';
             blob.type = 'application/zip';
             Events.fire('files-selected', { files: [blob], to: this._currentPeer });
