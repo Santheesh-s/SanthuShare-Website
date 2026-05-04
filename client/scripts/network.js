@@ -173,8 +173,8 @@ class Peer {
     _sendChunk(chunk) {
         this._send(chunk);
         if (this._conn && this._channel) {
-            // Speed Boost: Increase threshold to 16MB for better throughput on high-speed connections
-            if (this._channel.bufferedAmount > 1024 * 1024 * 16) { 
+            // Stable Speed: 4MB limit is the "sweet spot" for most mobile and desktop browsers
+            if (this._channel.bufferedAmount > 1024 * 1024 * 4) { 
                  return false; // tell chunker to pause
             }
         }
@@ -417,7 +417,7 @@ class RTCPeer extends Peer {
         channel.binaryType = 'arraybuffer';
         channel.onmessage = e => this._onMessage(e.data);
         channel.onclose = e => this._onChannelClosed();
-        channel.bufferedAmountLowThreshold = 1024 * 1024 * 4; // 4MB low threshold to resume sending early
+        channel.bufferedAmountLowThreshold = 1024 * 1024 * 1; // 1MB low threshold
         channel.onbufferedamountlow = () => {
             if (this._chunker && this._chunker._paused) {
                 this._chunker.resume();
@@ -593,7 +593,7 @@ class WSPeer extends Peer {
 class FileChunker {
 
     constructor(file, onChunk, onPartitionEnd) {
-        this._chunkSize = 512 * 1024; // 512 KB chunks for better speed/memory balance
+        this._chunkSize = 256 * 1024; // 256 KB safe chunk size
         this._maxPartitionSize = 1.6e7; // 16 MB partitions
         this._offset = 0;
         this._partitionSize = 0;

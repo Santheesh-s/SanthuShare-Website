@@ -554,6 +554,11 @@ class ChatUI {
         document.getElementById('chatbox-close').addEventListener('click', e => this.hide());
         document.getElementById('chatbox-remove-peer').addEventListener('click', e => {
             if (confirm('Are you sure you want to completely remove this peer and end the secure session?')) {
+                // Immediately hide the peer in UI
+                const peerEl = document.getElementById(this._currentPeer);
+                if (peerEl) peerEl.style.display = 'none';
+                this.hide();
+                
                 document.cookie = "peerid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
                 window.location.reload();
             }
@@ -870,6 +875,14 @@ class ChatUI {
                     stats.textContent = 'Cancelled';
                     cancelBtn.style.display = 'none';
                     progress.style.display = 'none';
+                    
+                    // Also fire locally to ensure network logic clears
+                    this._onFileProgress({
+                        sender: 'me',
+                        progress: -1,
+                        name: msg.name,
+                        total: msg.size
+                    });
                 };
                 
                 this._fileProgressElements[msg.id] = { progress, stats, cancelBtn };
